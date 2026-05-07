@@ -33,8 +33,6 @@ def parse_start_time(line):
 with open(file_path, "r", encoding="utf-8") as f:
     lines = f.readlines()
 
-base_date = datetime(2026, 3, 31)
-
 rounds = []
 current = None
 
@@ -49,6 +47,8 @@ for line in lines:
 
         start_time = parse_start_time(line)
 
+        print(start_time)
+
         current = {
             "start_time": start_time,
             "snr_logs": [],
@@ -56,7 +56,7 @@ for line in lines:
         }
 
     elif current:
-        t = parse_time(line, base_date)
+        t = parse_time(line, current["start_time"])
 
         # SNR
         m = re.search(r"SNRLOG: bin=\d+ snr=([\d.]+)", line)
@@ -88,7 +88,10 @@ def compute(round_data, idx, f):
 
     # ① 延迟
     if buzzers:
+        print(buzzers[0], start)
         delay = (buzzers[0] - start).total_seconds()
+        print(buzzers[0] - start)
+        print(delay)
         f.write(f"① 蜂鸣器首次打开延迟: {delay:.2f} 秒\n")
     else:
         f.write("① 未检测到蜂鸣器\n")

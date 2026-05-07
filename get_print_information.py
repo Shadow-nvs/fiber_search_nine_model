@@ -13,6 +13,7 @@ os.system("chcp 65001")
 # =============================
 test_active = False
 start_time = None
+phase = 0  # 0=等待KEY5, 1=记录夹纤器, 2=记录寻纤仪
 
 log_file = None
 log_lock = threading.Lock()
@@ -43,48 +44,6 @@ def write_log(text):
 # =============================
 # 夹纤器串口
 # =============================
-# def monitor_clamp_port(port):
-#     global test_active, start_time, phase = 0
-
-#     ser = serial.Serial(port, 115200, timeout=0)
-#     print(f"[夹纤器 {port}] 已启动")
-
-#     buffer = ""
-
-#     while True:
-#         try:
-#             data = ser.read(ser.in_waiting or 1)
-#             if data:
-#                 buffer += decode_serial(data)
-
-#                 while "\n" in buffer:
-#                     line, buffer = buffer.split("\n", 1)
-#                     line = line.strip()
-
-#                     print(f"[夹纤器] {line}")
-
-#                     # ===== 触发测试 =====
-#                     if "KEY5" in line and not test_active:
-#                         test_active = True
-#                         start_time = time.time()
-
-#                         # ===== 每轮分隔 =====
-#                         write_log("\n\n=================================")
-#                         write_log(f"新一轮测试开始: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-#                         write_log("=================================")
-
-#                         ts = time.strftime("%H:%M:%S")
-#                         write_log(f"[{ts}] [夹纤器] {line}")
-
-#                         print("\n>>> KEY5 UP 触发，开始记录 <<<\n")
-
-#                         ser.close()
-#                         return
-
-#         except Exception as e:
-#             print(f"[夹纤器异常] {e}")
-
-#         time.sleep(0.005)
 def monitor_clamp_port(port):
     global test_active, start_time, phase
 
@@ -145,47 +104,6 @@ def monitor_clamp_port(port):
 # =============================
 # 寻纤仪串口
 # =============================
-# def monitor_finder_port(port):
-#     global test_active, start_time
-
-#     ser = serial.Serial(port, 115200, timeout=0)
-#     print(f"[寻纤仪 {port}] 已启动")
-
-#     buffer = ""
-
-#     while True:
-#         try:
-#             data = ser.read(ser.in_waiting or 1)
-#             if data:
-#                 buffer += decode_serial(data)
-
-#                 while "\n" in buffer:
-#                     line, buffer = buffer.split("\n", 1)
-#                     line = line.strip()
-
-#                     now = time.time()
-
-#                     # ===== 只在触发后记录 =====
-#                     if test_active and start_time:
-#                         elapsed = now - start_time
-
-#                         ts = time.strftime("%H:%M:%S")
-#                         write_log(f"[{ts}] [寻纤仪] {line}")
-
-#                         # ===== 20秒结束 =====
-#                         if elapsed >= 20:
-#                             write_log("\n===== 20秒记录结束 =====\n")
-
-#                             test_active = False
-#                             start_time = None
-
-#                             ser.close()
-#                             return
-
-#         except Exception as e:
-#             print(f"[寻纤仪异常] {e}")
-
-#         time.sleep(0.005)
 def monitor_finder_port(port):
     global test_active, start_time, phase
 
@@ -222,7 +140,6 @@ def monitor_finder_port(port):
                             phase = 0
 
                             print("\n>>> 本轮结束 <<<\n")
-                            return
 
         except Exception as e:
             print(f"[寻纤仪异常] {e}")
@@ -257,27 +174,40 @@ def main():
 
     print("\n=== 等待 KEY5 UP 触发 ===\n")
 
+    # while True:
+
+    #     # 重置状态
+    #     test_active = False
+    #     start_time = None
+
+    #     # 启动线程
+    #     t1 = threading.Thread(target=monitor_clamp_port, args=(clamp_port,))
+    #     t2 = threading.Thread(target=monitor_finder_port, args=(finder_port,))
+
+    #     t1.start()
+    #     t2.start()
+
+    #     # 等待本轮结束
+    #     while True:
+    #         if not t1.is_alive() and not t2.is_alive():
+    #             break
+    #         time.sleep(0.5)
+    # 启动一次
+    t1 = threading.Thread(target=monitor_clamp_port, args=(clamp_port,))
+    t2 = threading.Thread(target=monitor_finder_port, args=(finder_port,))
+
+    t1.daemon = True
+    t2.daemon = True
+
+    t1.start()
+    t2.start()
+
+    # 主线程挂起
     while True:
+        time.sleep(1)
 
-        # 重置状态
-        test_active = False
-        start_time = None
-
-        # 启动线程
-        t1 = threading.Thread(target=monitor_clamp_port, args=(clamp_port,))
-        t2 = threading.Thread(target=monitor_finder_port, args=(finder_port,))
-
-        t1.start()
-        t2.start()
-
-        # 等待本轮结束
-        while True:
-            if not t1.is_alive() and not t2.is_alive():
-                break
-            time.sleep(0.5)
-
-        print("\n=== 本轮测试结束 ===")
-        input(">>> 按 Enter 开始下一轮测试 <<<\n")
+        # print("\n=== 本轮测试结束 ===")
+        # input(">>> 按 Enter 开始下一轮测试 <<<\n")
 
 
 # =============================
